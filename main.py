@@ -11,7 +11,7 @@ from MusicPlayer import MusicPlayer
 load_dotenv()
 
 SUPPORTED_FORMATS = ('.mp3', '.wav', '.ogg', '.flac', '.m4a', '.opus')
-TOKEN = os.getenv('DISCORD_BOT_TOKEN') or 'DEFAULT_DISCORD_BOT_TOKEN'
+TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 PREFIX = os.getenv('DISCORD_BOT_PREFIX') or '!'
 MUSIC_FOLDER = os.getenv('DISCORD_BOT_MUSIC_SOURCE_FOLDER') or "music"
 
@@ -37,7 +37,7 @@ async def on_ready():
 
     # Printing servers list
     for guild in bot.guilds:
-        print(f'   • {guild.name} (ID: {guild.id}). Members count: {guild.member_count}')
+        print(f'   - {guild.name} (ID: {guild.id}). Members count: {guild.member_count}')
         bot_member = guild.get_member(bot.user.id) # Checking server bot permissions
         if bot_member:
             print(f'     Status: {bot_member.status} . Roles: {len(bot_member.roles)}')
@@ -51,7 +51,7 @@ async def on_ready():
     if files:
         print(f'Found {len(files)} files:')
         for file in files:
-            print(f'  • {file}')
+            print(f'  - {file}')
     else:
         print(f'No music files fount in folder. Please add music files in {SUPPORTED_FORMATS} formats')
     print('=' * 50)
@@ -72,7 +72,7 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     """Debug: logging all messages"""
-    print(f'📨 [{message.guild.name if message.guild else "PM"}] '
+    print(f'[{message.guild.name if message.guild else "PM"}] '
           f'{message.author}: {message.content}')
 
     # Обрабатываем команды
@@ -82,7 +82,7 @@ async def on_message(message):
 async def ping(ctx):
     """Basic check if bot is alive"""
     latency = round(bot.latency * 1000)
-    await ctx.send(f'🏓 Pong! Latency: {latency} ms')
+    await ctx.send(f'Pong. Latency: {latency} ms')
 
 @bot.command()
 async def info(ctx):
@@ -105,10 +105,10 @@ async def info(ctx):
 
     embed.add_field(
         name="Bot permissions",
-        value=f"**Read messages:** {'✅' if permissions.read_messages else '❌'}\n"
-              f"**Send messages:** {'✅' if permissions.send_messages else '❌'}\n"
-              f"**Manage messages:** {'✅' if permissions.manage_messages else '❌'}\n"
-              f"**Read history:** {'✅' if permissions.read_message_history else '❌'}",
+        value=f"**Read messages:** {'yes' if permissions.read_messages else 'no'}\n"
+              f"**Send messages:** {'yes' if permissions.send_messages else 'no'}\n"
+              f"**Manage messages:** {'yes' if permissions.manage_messages else 'no'}\n"
+              f"**Read history:** {'yes' if permissions.read_message_history else 'no'}",
         inline=False
     )
 
@@ -119,13 +119,13 @@ async def debug(ctx):
     """Gather debugging info"""
     await ctx.send(f'''
 **Debug:**
-• Bot: {bot.user}
-• Bot ID: {bot.user.id}
-• Prefix: {PREFIX}
-• Latency: {round(bot.latency * 1000)}ms
-• Channel: #{ctx.channel.name}
-• Server: {ctx.guild.name}
-• Message ID: {ctx.message.id}
+Bot: {bot.user}
+Bot ID: {bot.user.id}
+Prefix: {PREFIX}
+Latency: {round(bot.latency * 1000)}ms
+Channel: #{ctx.channel.name}
+Server: {ctx.guild.name}
+Message ID: {ctx.message.id}
     ''')
 
 @bot.command()
@@ -143,14 +143,14 @@ async def channels(ctx):
         if text_channels:
             embed.add_field(
                 name="Text channels",
-                value="\n".join([f"• {c.name} ({c.id})" for c in text_channels[:10]]),
+                value="\n".join([f"- {c.name} ({c.id})" for c in text_channels[:10]]),
                 inline=False
             )
 
         if voice_channels:
             embed.add_field(
                 name="Voice channels",
-                value="\n".join([f"• {c.name}" for c in voice_channels[:5]]),
+                value="\n".join([f"- {c.name}" for c in voice_channels[:5]]),
                 inline=False
             )
 
@@ -185,15 +185,21 @@ async def join(ctx):
 @bot.command()
 async def leave(ctx):
     """Leave voice channel"""
-    if ctx.voice_client:
-        # Clearing queue for this channel
-        if ctx.guild.id in music_players:
-            music_players[ctx.guild.id].clear_queue()
-
-        await ctx.voice_client.disconnect()
-        await ctx.send("Leaving")
-    else:
+    if not ctx.voice_client:
         await ctx.send("Not in a voice channel")
+        return
+
+    player = get_player(ctx.guild.id)
+    player.stop_requested = True
+    player.clear_queue()
+
+    if ctx.voice_client.is_playing():
+        ctx.voice_client.stop()
+    else:
+        player.stop_requested = False
+
+    await ctx.voice_client.disconnect()
+    await ctx.send("Leaving")
 
 @bot.command()
 async def play(ctx, *, arg=None):
@@ -259,6 +265,24 @@ async def play(ctx, *, arg=None):
     else:
         await ctx.send(f"File '{found_file}' not found ")
 
+async def _handle_playback_done(ctx, error, track):
+    """Continue queue after a track ends or fails."""
+    player = get_player(ctx.guild.id)
+
+    if player.stop_requested:
+        player.stop_requested = False
+        return
+
+    if error:
+        filename = os.path.basename(track)
+        player.discard_track(track)
+        try:
+            await ctx.send(f"Playback error for {filename}: {error}")
+        except discord.HTTPException:
+            print(f"Playback error for {filename}: {error}")
+
+    await play_next(ctx)
+
 async def play_next(ctx):
     """Play next track form queue"""
     player = get_player(ctx.guild.id)
@@ -280,18 +304,18 @@ async def play_next(ctx):
                 volume=player.volume
             )
 
-            voice_client.play(
-                source,
-                after=lambda e: asyncio.run_coroutine_threadsafe(
-                    play_next(ctx),
+            def after_playback(error):
+                asyncio.run_coroutine_threadsafe(
+                    _handle_playback_done(ctx, error, next_track),
                     bot.loop
-                ) if not e else None
-            )
+                )
+
+            voice_client.play(source, after=after_playback)
 
             # Отправляем информацию о текущем треке
             filename = os.path.basename(next_track)
             embed = discord.Embed(
-                title="Not playing",
+                title="Now playing",
                 description=f"**{filename}**",
                 color=discord.Color.green()
             )
@@ -301,20 +325,40 @@ async def play_next(ctx):
 
         except Exception as e:
             await ctx.send(f"Playing error: {e}")
-            await play_next(ctx)  # Пропускаем проблемный трек
+            player.discard_track(next_track)
+            await play_next(ctx)
     else:
         await ctx.send("Queue is empty")
 
 @bot.command()
 async def stop(ctx):
     """Stop playing the music and clear the queue"""
-    if ctx.voice_client:
-        ctx.voice_client.stop()
-
     player = get_player(ctx.guild.id)
+    player.stop_requested = True
     player.clear_queue()
 
+    if ctx.voice_client and ctx.voice_client.is_playing():
+        ctx.voice_client.stop()
+    else:
+        player.stop_requested = False
+
     await ctx.send("Music stopped. Queue cleared.")
+
+@bot.command()
+async def skip(ctx):
+    """Skip the current track"""
+    if not ctx.author.voice:
+        await ctx.send("Enter to the voice channel")
+        return
+
+    if not ctx.voice_client or not (ctx.voice_client.is_playing() or ctx.voice_client.is_paused()):
+        await ctx.send("Nothing is playing")
+        return
+
+    player = get_player(ctx.guild.id)
+    player.current = None
+    ctx.voice_client.stop()
+    await ctx.send("Skipped")
 
 @bot.command()
 async def list(ctx):
@@ -412,13 +456,14 @@ if __name__ == "__main__":
     print(f"Music folder: {os.path.abspath(MUSIC_FOLDER)}")
     print("Initializing music bot...")
 
+    if not TOKEN:
+        print("Error: DISCORD_BOT_TOKEN is not set")
+        print("Create a .env file (see .env.example) and add:")
+        print("DISCORD_BOT_TOKEN=your token here")
+        raise SystemExit(1)
+
     if not os.path.exists(MUSIC_FOLDER):
         print(f"Creating folder {MUSIC_FOLDER}")
         os.makedirs(MUSIC_FOLDER)
 
-    if TOKEN:
-        bot.run(TOKEN)
-    else:
-        print("Error: token not found")
-        print("Please create .env file and add data: ")
-        print("DISCORD_BOT_TOKEN=your token here")
+    bot.run(TOKEN)
