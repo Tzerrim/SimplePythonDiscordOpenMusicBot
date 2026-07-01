@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 
@@ -12,7 +13,7 @@ load_dotenv()
 
 SUPPORTED_FORMATS = ('.mp3', '.wav', '.ogg', '.flac', '.m4a', '.opus')
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
-PREFIX = os.getenv('DISCORD_BOT_PREFIX') or '!'
+PREFIX = os.getenv('DISCORD_BOT_PREFIX') or '/'
 MUSIC_FOLDER = os.getenv('DISCORD_BOT_MUSIC_SOURCE_FOLDER') or "music"
 
 intents = discord.Intents.default()
@@ -29,6 +30,31 @@ def get_player(guild_id):
     if guild_id not in music_players:
         music_players[guild_id] = MusicPlayer(MUSIC_FOLDER,SUPPORTED_FORMATS)
     return music_players[guild_id]
+
+async def track_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> list[app_commands.Choice[str]]:
+    player = get_player(interaction.guild_id)
+    files = player.get_music_files()
+    choices: list[app_commands.Choice[str]] = []
+    current_lower = current.lower()
+
+    for index, filename in enumerate(files, start=1):
+        if current and current_lower not in filename.lower() and current != str(index):
+            continue
+        label = f"{index}. {filename}"[:100]
+        choices.append(app_commands.Choice(name=label, value=str(index)))
+        if len(choices) >= 25:
+            break
+
+    return choices
+
+REPEAT_MODE_CHOICES = [
+    app_commands.Choice(name="Repeat current track", value="repeat"),
+    app_commands.Choice(name="Repeat playlist", value="repeat_playlist"),
+    app_commands.Choice(name="No repeat", value="no_repeat"),
+]
 
 @bot.event
 async def on_ready():
@@ -63,9 +89,16 @@ async def on_ready():
         print(f'  {PREFIX}{cmd.name:<10} - {desc}')
     print('=' * 50)
 
+    if not getattr(bot, '_slash_synced', False):
+        synced = await bot.tree.sync()
+        bot._slash_synced = True
+        print(f'Synced {len(synced)} slash command(s) — type / in Discord for interactive hints')
+        print(f'Prefix commands still work: {PREFIX}play, {PREFIX}help, etc.')
+        print('=' * 50)
+
     # Changing bot status
     await bot.change_presence(
-        activity=discord.Game(name=f"Use {PREFIX}help"),
+        activity=discord.Game(name=f"/play or {PREFIX}help"),
         status=discord.Status.online
     )
 
@@ -78,7 +111,12 @@ async def on_message(message):
     # Обрабатываем команды
     await bot.process_commands(message)
 
-@bot.command()
+@bot.hybrid_command(
+    name="ping",
+    description="Check if the bot is online",
+    brief="Check if the bot is online",
+    usage="ping",
+)
 async def ping(ctx):
     """Basic check if bot is alive"""
     latency = round(bot.latency * 1000)
@@ -166,9 +204,16 @@ async def channels(ctx):
         except discord.Forbidden:
             await ctx.author.send(f"Error. Also not enough permissions to send messages to this channel: `{e}`")
 
-@bot.command()
+@bot.hybrid_command(
+    name="join",
+    description="Join your voice channel",
+    brief="Join your voice channel",
+    usage="join",
+)
 async def join(ctx):
     """Join to user's voice channel"""
+    if ctx.interaction is not None:
+        await ctx.defer()
     if not ctx.author.voice:
         await ctx.send("You are not in a voice channel")
         return
@@ -182,7 +227,12 @@ async def join(ctx):
 
     await ctx.send(f"Joined to **{channel.name}**")
 
-@bot.command()
+@bot.hybrid_command(
+    name="leave",
+    description="Leave the voice channel",
+    brief="Leave the voice channel",
+    usage="leave",
+)
 async def leave(ctx):
     """Leave voice channel"""
     if not ctx.voice_client:
@@ -201,9 +251,19 @@ async def leave(ctx):
     await ctx.voice_client.disconnect()
     await ctx.send("Leaving")
 
-@bot.command()
-async def play(ctx, *, arg=None):
+@bot.hybrid_command(
+    name="play",
+    description="Play a track by number or name",
+    brief="Play a track by number or name",
+    usage="play <number|filename>",
+    help=f"Play from the music folder. Examples: `{PREFIX}play 1`, `{PREFIX}play song name`. Use `{PREFIX}list` to see tracks.",
+)
+@app_commands.describe(arg="Track number from list or part of the filename")
+@app_commands.autocomplete(arg=track_autocomplete)
+async def play(ctx, *, arg: str = None):
     """Play track by number or name"""
+    if ctx.interaction is not None:
+        await ctx.defer()
 
     if not ctx.author.voice:
         await ctx.send("Enter to the voice channel")
@@ -330,7 +390,12 @@ async def play_next(ctx):
     else:
         await ctx.send("Queue is empty")
 
-@bot.command()
+@bot.hybrid_command(
+    name="stop",
+    description="Stop playback and clear the queue",
+    brief="Stop playback and clear the queue",
+    usage="stop",
+)
 async def stop(ctx):
     """Stop playing the music and clear the queue"""
     player = get_player(ctx.guild.id)
@@ -344,7 +409,12 @@ async def stop(ctx):
 
     await ctx.send("Music stopped. Queue cleared.")
 
-@bot.command()
+@bot.hybrid_command(
+    name="skip",
+    description="Skip the current track",
+    brief="Skip the current track",
+    usage="skip",
+)
 async def skip(ctx):
     """Skip the current track"""
     if not ctx.author.voice:
@@ -360,7 +430,12 @@ async def skip(ctx):
     ctx.voice_client.stop()
     await ctx.send("Skipped")
 
-@bot.command()
+@bot.hybrid_command(
+    name="list",
+    description="Show all tracks in the music folder",
+    brief="Show all tracks in the music folder",
+    usage="list",
+)
 async def list(ctx):
     """Show all tracks"""
     player = get_player(ctx.guild.id)
@@ -380,13 +455,18 @@ async def list(ctx):
     for i, filename in enumerate(files, 1):
         embed.add_field(
             name=f"{i}. {filename}",
-            value=f"`{PREFIX}play {i}` OR `{PREFIX}play {filename}`",
+            value=f"`/play` track:{i} OR `{PREFIX}play {i}` OR `{PREFIX}play {filename}`",
             inline=False
         )
 
     await ctx.send(embed=embed)
 
-@bot.command()
+@bot.hybrid_command(
+    name="playing",
+    description="Show the currently playing track",
+    brief="Show the currently playing track",
+    usage="playing",
+)
 async def playing(ctx):
     """Show current track name"""
     player = get_player(ctx.guild.id)
@@ -414,8 +494,15 @@ async def playing(ctx):
 
     await ctx.send(embed=embed)
 
-@bot.command()
-async def volume(ctx, level: int = None):
+@bot.hybrid_command(
+    name="volume",
+    description="Show or set playback volume (0-100)",
+    brief="Show or set volume (0-100)",
+    usage="volume [0-100]",
+    help=f"Show current volume with `{PREFIX}volume`, or set it with `{PREFIX}volume 75`.",
+)
+@app_commands.describe(level="Volume 0-100; leave empty to show current volume")
+async def volume(ctx, level: app_commands.Range[int, 0, 100] = None):
     """Change volume percentage (0-100)"""
     if level is None:
         player = get_player(ctx.guild.id)
@@ -435,8 +522,16 @@ async def volume(ctx, level: int = None):
 
     await ctx.send(f"Current volume is set to {level}%")
 
-@bot.command()
-async def play_mode(ctx, *, arg=None):
+@bot.hybrid_command(
+    name="play_mode",
+    description="Set repeat mode for playback",
+    brief="Set repeat mode",
+    usage="play_mode <repeat|repeat_playlist|no_repeat>",
+    help=f"Modes: `repeat`, `repeat_playlist`, `no_repeat`. Example: `{PREFIX}play_mode repeat`.",
+)
+@app_commands.describe(arg="How tracks repeat after they finish")
+@app_commands.choices(arg=REPEAT_MODE_CHOICES)
+async def play_mode(ctx, *, arg: str = None):
     """Set playing mode: repeat, repeat_playlist, no_repeat"""
     REPEAT_MODES = ('repeat', 'repeat_playlist', 'no_repeat')
     if not ctx.author.voice:
@@ -447,6 +542,7 @@ async def play_mode(ctx, *, arg=None):
         await ctx.send(f"Wrong repeat mode. Repeat modes are:{REPEAT_MODES}")
         return
     player.play_mode = arg
+    await ctx.send(f"Play mode set to **{arg}**")
 
 # Starting
 if __name__ == "__main__":
