@@ -294,33 +294,134 @@ Subfolders inside the music directory are scanned automatically.
 
 ---
 
-## Discord bot setup
+## Discord bot setup (Developer Portal)
+
+This section explains how to create and configure the bot on the [Discord Developer Portal](https://discord.com/developers/applications) and add it to your server.
+
+### 1. Create an application
 
 1. Open [https://discord.com/developers/applications](https://discord.com/developers/applications)
-2. Create an application and add a **Bot**
-3. Copy the bot token into `.env`
-4. Enable **Message Content Intent** under Bot settings
-5. Invite the bot to your server with permissions to:
-   - Read/Send Messages
-   - Connect and Speak (voice)
+2. Log in with your Discord account
+3. Click **New Application**
+4. Enter a name (for example `Music Bot`) and click **Create**
+
+You are now on the application settings page. The bot code reads settings from your local `.env` file; the portal is only for creating the bot account and getting the token.
+
+### 2. Create the bot and copy the token
+
+1. In the left sidebar, open **Bot**
+2. Click **Add Bot** → **Yes, do it!**
+3. Under **Token**, click **Reset Token** (or **View Token** if this is a new bot)
+4. Copy the token and paste it into `.env`:
+
+```env
+DISCORD_BOT_TOKEN=paste_your_token_here
+```
+
+**Important:**
+- Never share your token publicly or commit it to git
+- If the token leaks, click **Reset Token** in the portal immediately and update `.env`
+
+Optional on the **Bot** page:
+- **Username** — change how the bot appears in Discord
+- **Icon** — upload an avatar
+- **Public Bot** — leave enabled unless you want to restrict who can invite it
+
+### 3. Enable required Privileged Gateway Intents
+
+Still on the **Bot** page, scroll to **Privileged Gateway Intents** and enable:
+
+| Intent | Required | Why |
+|--------|----------|-----|
+| **Message Content Intent** | Yes | Prefix commands (`!play`, etc.) need to read message text |
+| **Server Members Intent** | Yes | Used by the bot for member-related features |
+
+Click **Save Changes** at the bottom of the page.
+
+Without **Message Content Intent**, the bot will start but will not respond to prefix commands.
+
+### 4. Invite the bot to your server
+
+1. In the left sidebar, open **OAuth2** → **URL Generator**
+2. Under **Scopes**, enable:
+   - **bot**
+   - **applications.commands** (required for `/play`, `/list`, and other slash commands with typing hints)
+3. Under **Bot Permissions**, enable at least:
+
+| Permission | Why |
+|------------|-----|
+| Read Messages / View Channels | See text channels |
+| Send Messages | Reply to commands |
+| Read Message History | Read command messages |
+| Connect | Join voice channels |
+| Speak | Play audio |
+| Use Voice Activity | Voice connection (recommended) |
+
+4. Copy the generated **URL** at the bottom
+5. Open the URL in your browser
+6. Select the server where you have **Manage Server** permission
+7. Click **Authorize** and complete the captcha
+
+The bot should appear in your server member list (offline until you run `python main.py`).
+
+**Re-invite if slash commands are missing:** If `/play` does not appear in Discord, generate a new invite URL with **applications.commands** checked and open it again (you can invite the same bot twice — permissions will update).
+
+### 5. Configure local settings (`.env`)
+
+After the token is in `.env`, set your command prefix and music folder (see [Configuration (.env)](#configuration-env) above):
+
+```env
+DISCORD_BOT_TOKEN=your_token_here
+DISCORD_BOT_PREFIX=!
+DISCORD_BOT_MUSIC_SOURCE_FOLDER=music
+```
+
+Change `DISCORD_BOT_PREFIX` to any prefix you like (for example `?` or `music.`). Restart the bot after changing `.env`.
+
+### 6. Start the bot and verify
+
+```bash
+python main.py
+```
+
+On startup you should see:
+- `Bot ... started successfully`
+- `Synced N slash command(s)` — slash commands registered with Discord
+
+In Discord:
+- Prefix commands: type your prefix, for example `!help` or `!list`
+- Slash commands (typing hints): type `/` and select your bot, then choose `/play`, `/join`, etc.
 
 ---
 
 ## Basic commands
 
-| Command | Description |
-|---------|-------------|
-| `!join` | Join your voice channel |
-| `!play <number or path>` | Play a track |
-| `!list` | Show available tracks |
-| `!skip` | Skip current track |
-| `!stop` | Stop and clear queue |
-| `!leave` | Leave voice channel |
-| `!volume <0-100>` | Set volume |
-| `!play_mode <mode>` | `repeat`, `repeat_playlist`, or `no_repeat` |
-| `!help` | Show all commands |
+You can use **both** prefix commands and slash commands. Prefix uses the value from `DISCORD_BOT_PREFIX` in `.env` (default `!`). Slash commands always start with `/`.
+
+| Prefix example | Slash command | Description |
+|----------------|---------------|-------------|
+| `!join` | `/join` | Join your voice channel |
+| `!play <number or name>` | `/play` | Play a track (`/play` suggests tracks while typing) |
+| `!list` | `/list` | Show available tracks |
+| `!skip` | `/skip` | Skip current track |
+| `!stop` | `/stop` | Stop and clear queue |
+| `!leave` | `/leave` | Leave voice channel |
+| `!volume <0-100>` | `/volume` | Show or set volume |
+| `!play_mode <mode>` | `/play_mode` | `repeat`, `repeat_playlist`, or `no_repeat` (dropdown on slash) |
+| `!help` | — | Show all prefix commands |
+| `!ping` | `/ping` | Check if the bot is online |
 
 Replace `!` with your prefix if you changed it in `.env`.
+
+**Using `/play`:** type `/`, select the bot, choose **play**, then pick or type a track number from `/list`.
+
+**Using prefix play:**
+
+```
+!list                          show track list first
+!play 3                        play by number
+!play song.mp3                 search by part of the filename
+```
 
 ---
 
@@ -338,6 +439,12 @@ FFmpeg is not installed or not in `PATH`. Reinstall FFmpeg and open a new termin
 
 - Check that **Message Content Intent** is enabled in the Discord Developer Portal
 - Confirm the bot is online and the command prefix matches `.env`
+
+### Slash commands (`/play`) do not appear
+
+- Re-invite the bot with the **applications.commands** scope (OAuth2 → URL Generator)
+- Restart the bot and wait a few minutes for Discord to sync commands globally
+- Make sure the console shows `Synced N slash command(s)` on startup
 
 ### No music files found
 
