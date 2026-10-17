@@ -373,6 +373,7 @@ DISCORD_BOT_MUSIC_SOURCE_FOLDER=/mnt/nas/Music/Library
 | `DISCORD_BOT_TOKEN` | Your bot token from the Discord Developer Portal | `DISCORD_BOT_TOKEN=your_token_here` |
 | `DISCORD_BOT_PREFIX` | Command prefix | `!` |
 | `DISCORD_BOT_MUSIC_SOURCE_FOLDER` | Path to your music library | `music` or `D:\Music` or `/home/user/Music` |
+| `DISCORD_BOT_BITRATE` | Audio bitrate sent to Discord, in kbps. Default `96`. Other options: `128` (higher quality, more traffic), `64` (less traffic, lower quality) | `DISCORD_BOT_BITRATE=96` |
 | `DISCORD_BOT_DEBUG` | Print every chat message the bot sees to the console (off by default) | `DISCORD_BOT_DEBUG=true` |
 
 **Important:**

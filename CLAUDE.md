@@ -37,7 +37,7 @@ Or run the venv's Python directly, without activating it:
 Run `deactivate` to leave the venv. Activation applies only to the current terminal, so activate it again in each new terminal.
 
 - FFmpeg must be on `PATH` (used by `discord.FFmpegPCMAudio`).
-- Config comes from `.env` via python-dotenv: `DISCORD_BOT_TOKEN` (required), `DISCORD_BOT_PREFIX` (default `/` in code), `DISCORD_BOT_MUSIC_SOURCE_FOLDER` (default `music`, created if missing), `DISCORD_BOT_DEBUG` (`true` prints every chat message to the console).
+- Config comes from `.env` via python-dotenv: `DISCORD_BOT_TOKEN` (required), `DISCORD_BOT_PREFIX` (default `/` in code), `DISCORD_BOT_MUSIC_SOURCE_FOLDER` (default `music`, created if missing), `DISCORD_BOT_BITRATE` (Opus kbps passed to `voice_client.play`, default 96, 16-512), `DISCORD_BOT_DEBUG` (`true` prints every chat message to the console).
 - There are no tests, linter, or build step. `.env.example` is the config template; keep it in sync with the variables read in `main.py`.
 
 ## Checking and updating dependencies

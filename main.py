@@ -15,6 +15,15 @@ TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 PREFIX = os.getenv('DISCORD_BOT_PREFIX') or '/'
 MUSIC_FOLDER = os.getenv('DISCORD_BOT_MUSIC_SOURCE_FOLDER') or "music"
 DEBUG = (os.getenv('DISCORD_BOT_DEBUG') or '').lower() in ('1', 'true', 'yes')
+DEFAULT_BITRATE = 96 # Opus kbps sent to Discord. Other options: 128 (higher quality), 64 (less traffic)
+BITRATE = DEFAULT_BITRATE
+
+_bitrate_setting = os.getenv('DISCORD_BOT_BITRATE')
+if _bitrate_setting:
+    if _bitrate_setting.isdigit() and 16 <= int(_bitrate_setting) <= 512:
+        BITRATE = int(_bitrate_setting)
+    else:
+        print(f"DISCORD_BOT_BITRATE must be a number from 16 to 512, got '{_bitrate_setting}'. Using {DEFAULT_BITRATE}")
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -379,7 +388,7 @@ async def play_next(ctx, previous_track=None):
                     bot.loop
                 )
 
-            voice_client.play(source, after=after_playback)
+            voice_client.play(source, after=after_playback, bitrate=BITRATE)
 
             if next_track == previous_track and player.play_mode != 'no_repeat':
                 return
@@ -621,7 +630,7 @@ async def play_mode(ctx, *, arg: str = None):
 
 # Starting
 if __name__ == "__main__":
-    print(f"Bot starting. Token: {'set' if TOKEN else 'not set'}. Prefix: {PREFIX}. Debug: {'on' if DEBUG else 'off'}")
+    print(f"Bot starting. Token: {'set' if TOKEN else 'not set'}. Prefix: {PREFIX}. Bitrate: {BITRATE} kbps. Debug: {'on' if DEBUG else 'off'}")
 
     if not TOKEN:
         print("Error: DISCORD_BOT_TOKEN is not set")

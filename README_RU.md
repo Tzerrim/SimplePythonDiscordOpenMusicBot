@@ -373,6 +373,7 @@ DISCORD_BOT_MUSIC_SOURCE_FOLDER=/mnt/nas/Music/Library
 | `DISCORD_BOT_TOKEN` | Токен бота из Discord Developer Portal | `DISCORD_BOT_TOKEN=your_token_here` |
 | `DISCORD_BOT_PREFIX` | Префикс команд | `!` |
 | `DISCORD_BOT_MUSIC_SOURCE_FOLDER` | Путь к папке с музыкой | `music` или `D:\Music` или `/home/user/Music` |
+| `DISCORD_BOT_BITRATE` | Битрейт звука, отправляемого в Discord, в кбит/с. По умолчанию `96`. Другие варианты: `128` (выше качество, больше трафика), `64` (меньше трафика, ниже качество) | `DISCORD_BOT_BITRATE=96` |
 | `DISCORD_BOT_DEBUG` | Выводить в консоль все сообщения из чатов, которые видит бот (по умолчанию выключено) | `DISCORD_BOT_DEBUG=true` |
 
 **Важно:**
