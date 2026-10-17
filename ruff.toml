@@ -1,0 +1,8 @@
+line-length = 120
+
+[lint]
+# Catch-all except is intentional: one broken file or channel must not stop the queue or a command
+ignore = ["BLE001"]
+
+[format]
+quote-style = "preserve"
