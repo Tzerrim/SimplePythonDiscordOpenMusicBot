@@ -223,6 +223,98 @@ python main.py
 
 ---
 
+## Virtual environment (venv)
+
+### First run: create the environment
+
+Run once from the project folder:
+
+**Linux / macOS:**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py
+```
+
+**Windows:**
+
+```bat
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
+```
+
+### Next runs: reuse the existing environment
+
+The `.venv` folder stays in the project, so don't create it again. Activate it and start the bot:
+
+**Linux / macOS:**
+
+```bash
+source .venv/bin/activate
+python main.py
+```
+
+**Windows:**
+
+```bat
+.venv\Scripts\activate
+python main.py
+```
+
+You can also run the environment's Python directly, without activating it:
+
+```bash
+.venv/bin/python main.py          # Linux / macOS
+.venv\Scripts\python main.py      # Windows
+```
+
+Activation applies only to the current terminal window, so activate the environment again in each new terminal. To leave it, run `deactivate`.
+
+---
+
+## Checking and updating libraries
+
+Outdated libraries are a common reason the bot stops working, because Discord changes its connection and voice protocols. Typical signs are voice connection errors, the bot joining a channel but playing nothing, or errors from inside `discord.py`.
+
+Run all commands inside the activated `.venv`.
+
+### Check
+
+```bash
+pip list --outdated                          # packages with newer versions available
+pip index versions discord.py                # versions available on PyPI
+pip show discord.py python-dotenv PyNaCl     # installed versions
+```
+
+### Update
+
+```bash
+pip install --upgrade -r requirements.txt    # upgrade all packages in requirements.txt
+pip install --upgrade "discord.py[voice]"    # upgrade one package ([voice] also installs PyNaCl)
+```
+
+- `requirements.txt` only sets minimum versions (`>=`), so `pip install --upgrade -r requirements.txt` installs the latest releases. If an upgrade fixes a problem, raise the minimum version in `requirements.txt` to the working one so new installs don't get an older version.
+- After upgrading, run `python main.py`, check that the console shows `Synced N slash command(s)`, and test `/join` and `/play` in Discord.
+- If the environment is broken, delete the `.venv` folder, create it again, and run `pip install -r requirements.txt`.
+
+### Updating FFmpeg
+
+FFmpeg is not installed through pip. Update it with your system package manager:
+
+| OS | Command |
+|----|---------|
+| Fedora / RHEL | `sudo dnf upgrade ffmpeg` |
+| Debian / Ubuntu | `sudo apt update && sudo apt upgrade ffmpeg` |
+| Arch | `sudo pacman -Syu ffmpeg` |
+| macOS | `brew upgrade ffmpeg` |
+| Windows | `winget upgrade Gyan.FFmpeg` |
+
+---
+
 ## Configuration (.env)
 
 Copy the example file and edit it:
