@@ -4,7 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A Discord bot (discord.py 2.x) that plays local audio files from a configured folder (scanned recursively) into voice channels. Two source files: `main.py` (bot setup, commands, playback loop) and `MusicPlayer.py` (per-guild queue/state, no Discord dependencies).
+A Discord bot (discord.py 2.x) that plays local audio files from a configured folder (scanned recursively) into voice channels. Commands are grouped in discord.py cogs:
+
+- `main.py`: `MusicBot` subclass whose `setup_hook` loads the extensions in `EXTENSIONS`, plus `on_ready` (startup log, cache fill, one-time slash sync) and `on_message`.
+- `config.py`: reads `.env` once; every other module imports settings from here.
+- `library.py`: shared track list cache (module-level, one for all servers), `refresh_music_files()`, `find_track()`.
+- `views.py`: `/list` paging (`build_track_pages`, `TrackListView`).
+- `cogs/music.py`: `Music` cog with all playback commands and the playback loop; `cogs/utility.py`: `Utility` cog (`ping`, `info`, `debug`, `channels`).
+- `MusicPlayer.py`: per-guild queue/state, no Discord dependencies.
+
+A new command goes into the matching cog as a method; a new cog file needs an `async def setup(bot)` and an entry in `EXTENSIONS`.
 
 ## Running
 
@@ -38,7 +47,7 @@ Run `deactivate` to leave the venv. Activation applies only to the current termi
 
 - FFmpeg must be on `PATH` (used by `discord.FFmpegPCMAudio`).
 - Config comes from `.env` via python-dotenv: `DISCORD_BOT_TOKEN` (required), `DISCORD_BOT_PREFIX` (default `/` in code), `DISCORD_BOT_MUSIC_SOURCE_FOLDER` (default `music`, created if missing), `DISCORD_BOT_BITRATE` (Opus kbps passed to `voice_client.play`, default 96, 16-512), `DISCORD_BOT_DEBUG` (`true` prints every chat message to the console).
-- There are no tests, linter, or build step. `.env.example` is the config template; keep it in sync with the variables read in `main.py`.
+- There are no tests, linter, or build step. `.env.example` is the config template; keep it in sync with the variables read in `config.py`.
 
 ## Checking and updating dependencies
 
@@ -60,14 +69,14 @@ pip install --upgrade "discord.py[voice]"    # upgrade one package (the [voice] 
 
 ## Architecture
 
-- **Per-guild state**: `music_players` dict in `main.py` maps `guild_id -> MusicPlayer`, created lazily by `get_player()`. All queue, volume, play mode and current-track state lives on `MusicPlayer`.
-- **Commands**: user-facing commands use `@bot.hybrid_command` so they work both as prefix commands and slash commands; `info`, `debug`, `channels` are prefix-only (`@bot.command`). Slash commands are synced once in `on_ready` (guarded by `bot._slash_synced`). Hybrid commands that may be slow call `ctx.defer()` when invoked via interaction.
+- **Per-guild state**: `Music.music_players` (in `cogs/music.py`) maps `guild_id -> MusicPlayer`, created lazily by `Music.get_player()`. All queue, volume, play mode and current-track state lives on `MusicPlayer`.
+- **Commands**: user-facing commands use `@commands.hybrid_command` so they work both as prefix commands and slash commands; `info`, `debug`, `channels` are prefix-only (`@commands.command`). `play` with no argument and unknown tracks call `ctx.invoke(self.bot.get_command('list'))`. Slash commands are synced once in `on_ready` (guarded by `bot._slash_synced`). Hybrid commands that may be slow call `ctx.defer()` when invoked via interaction.
 - **Track numbering**: track numbers are 1-based indexes into `MusicPlayer.get_music_files()` (sorted POSIX paths relative to the music folder). `/list`, `play` lookup, and `track_autocomplete` all rely on this same ordering — keep them consistent. `play` matches by number first, then by case-insensitive substring.
-- **Playback loop**: `play_next()` pulls `player.get_next()`, wraps it in `PCMVolumeTransformer(FFmpegPCMAudio(...))`, and registers an `after` callback that runs on discord's audio thread and schedules `_handle_playback_done()` back onto `bot.loop` via `asyncio.run_coroutine_threadsafe`. That handler discards failed tracks and calls `play_next()` again.
+- **Playback loop**: `play_next()` pulls `player.get_next()`, wraps it in `PCMVolumeTransformer(FFmpegPCMAudio(...))`, and registers an `after` callback that runs on discord's audio thread and schedules `_handle_playback_done()` back onto `self.bot.loop` via `asyncio.run_coroutine_threadsafe`. That handler discards failed tracks and calls `play_next()` again.
 - **Stop vs. skip**: `stop`/`leave` go through `stop_playback()`, which clears the queue and, only if a track is playing or paused, sets `player.stop_requested = True` before `voice_client.stop()` so the `after` callback does not advance the queue. `skip` instead clears `player.current` so `get_next()` advances even in `repeat` mode.
 - **FFmpeg options**: discord.py already outputs 48 kHz stereo PCM and appends our `options` after its own, so never pass `-ar`/`-ac` there; overriding the sample rate makes playback fast and high-pitched.
 - **Play modes** (`MusicPlayer.get_next`): `no_repeat` pops the queue; `repeat` keeps returning `current`; `repeat_playlist` rotates `current` to the back of the queue.
-- **Path safety**: `MusicPlayer._resolve_track_path` rejects paths that resolve outside the music folder or have unsupported extensions. `SUPPORTED_FORMATS` is defined in `main.py` and passed into `MusicPlayer`.
+- **Path safety**: `MusicPlayer._resolve_track_path` rejects paths that resolve outside the music folder or have unsupported extensions. `SUPPORTED_FORMATS` is defined in `config.py` and passed into `MusicPlayer`.
 
 ## Docs
 

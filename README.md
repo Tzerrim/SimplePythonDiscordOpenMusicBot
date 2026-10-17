@@ -558,8 +558,14 @@ FFmpeg is not installed or not in `PATH`. Reinstall FFmpeg and open a new termin
 
 ```
 DiscordOpenMusicBot/
-  main.py              # Bot commands and startup
-  MusicPlayer.py       # Queue and playback logic
+  main.py              # Bot startup: creates the bot, loads cogs, startup log
+  config.py            # Settings from .env
+  library.py           # Music folder scan, track cache and search
+  views.py             # /list pages with Previous/Next buttons
+  MusicPlayer.py       # Queue and play modes for one server
+  cogs/
+    music.py           # Music commands and playback
+    utility.py         # ping, info, debug, channels
   requirements.txt     # Python dependencies
   .env.example         # Config template
   .env                 # Your local config (not committed to git)

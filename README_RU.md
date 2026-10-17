@@ -558,8 +558,14 @@ FFmpeg не установлен или не добавлен в `PATH`. Пер�
 
 ```
 DiscordOpenMusicBot/
-  main.py              # Команды бота и запуск
-  MusicPlayer.py       # Очередь и логика воспроизведения
+  main.py              # Запуск бота: создание бота, загрузка cogs, лог запуска
+  config.py            # Настройки из .env
+  library.py           # Сканирование папки с музыкой, кэш и поиск треков
+  views.py             # Страницы /list с кнопками Previous/Next
+  MusicPlayer.py       # Очередь и режимы повтора для одного сервера
+  cogs/
+    music.py           # Музыкальные команды и воспроизведение
+    utility.py         # ping, info, debug, channels
   requirements.txt     # Python-зависимости
   .env.example         # Шаблон конфигурации
   .env                 # Ваша локальная конфигурация (не коммитится в git)
