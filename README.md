@@ -379,7 +379,7 @@ DISCORD_BOT_MUSIC_SOURCE_FOLDER=/mnt/nas/Music/Library
 - Do not commit `.env` to git (it contains your secret token)
 - Do not share your token publicly
 - Use absolute paths for external drives and NAS mounts
-- If a variable is missing, the bot uses defaults: prefix `!`, folder `music`
+- If a variable is missing, the bot uses defaults: prefix `/`, folder `music`
 
 Supported audio formats: `.mp3`, `.wav`, `.ogg`, `.flac`, `.m4a`, `.opus`
 
@@ -427,7 +427,7 @@ Still on the **Bot** page, scroll to **Privileged Gateway Intents** and enable:
 | Intent | Required | Why |
 |--------|----------|-----|
 | **Message Content Intent** | Yes | Prefix commands (`!play`, etc.) need to read message text |
-| **Server Members Intent** | Yes | Used by the bot for member-related features |
+| **Server Members Intent** | No | Not used by the bot, can stay off |
 
 Click **Save Changes** at the bottom of the page.
 
@@ -489,7 +489,7 @@ In Discord:
 
 ## Basic commands
 
-You can use **both** prefix commands and slash commands. Prefix uses the value from `DISCORD_BOT_PREFIX` in `.env` (default `!`). Slash commands always start with `/`.
+You can use **both** prefix commands and slash commands. Prefix uses the value from `DISCORD_BOT_PREFIX` in `.env` (default `/`). Slash commands always start with `/`.
 
 | Prefix example | Slash command | Description |
 |----------------|---------------|-------------|
@@ -505,7 +505,7 @@ You can use **both** prefix commands and slash commands. Prefix uses the value f
 | `!help` | — | Show all prefix commands |
 | `!ping` | `/ping` | Check if the bot is online |
 
-Replace `!` with your prefix if you changed it in `.env`.
+The examples use `!` as the prefix. The default prefix is `/`; replace `!` with the prefix from your `.env`. A prefix other than `/` (for example `!`) is easier to tell apart from slash commands.
 
 **Using `/play`:** type `/`, select the bot, choose **play**, then pick or type a track number from `/list`.
 

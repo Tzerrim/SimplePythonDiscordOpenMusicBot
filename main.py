@@ -1,6 +1,5 @@
 import asyncio
 import os
-from pathlib import Path
 
 import discord
 from discord import app_commands
@@ -20,10 +19,8 @@ DEBUG = (os.getenv('DISCORD_BOT_DEBUG') or '').lower() in ('1', 'true', 'yes')
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
-intents.members = True
 
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
-Path(MUSIC_FOLDER).mkdir(exist_ok=True)
 
 music_players = {} # Global dict for storing players to servers
 
@@ -149,7 +146,7 @@ async def info(ctx):
         inline=False
     )
 
-    bot_member = ctx.guild.get_member(bot.user.id)
+    bot_member = ctx.guild.me
     permissions = ctx.channel.permissions_for(bot_member)
 
     embed.add_field(
@@ -238,6 +235,17 @@ async def join(ctx):
 
     await ctx.send(f"Joined to **{channel.name}**")
 
+def stop_playback(ctx):
+    """Clear the queue and stop the current track without starting the next one"""
+    player = get_player(ctx.guild.id)
+    player.clear_queue()
+
+    voice_client = ctx.voice_client
+    if voice_client and (voice_client.is_playing() or voice_client.is_paused()):
+        # Playback callback sees the flag and does not continue the queue
+        player.stop_requested = True
+        voice_client.stop()
+
 @bot.hybrid_command(
     name="leave",
     description="Leave the voice channel",
@@ -250,15 +258,7 @@ async def leave(ctx):
         await ctx.send("Not in a voice channel")
         return
 
-    player = get_player(ctx.guild.id)
-    player.stop_requested = True
-    player.clear_queue()
-
-    if ctx.voice_client.is_playing():
-        ctx.voice_client.stop()
-    else:
-        player.stop_requested = False
-
+    stop_playback(ctx)
     await ctx.voice_client.disconnect()
     await ctx.send("Leaving")
 
@@ -368,7 +368,7 @@ async def play_next(ctx, previous_track=None):
             source = discord.PCMVolumeTransformer(
                 discord.FFmpegPCMAudio(
                     next_track,
-                    options='-vn -b:a 128k -ar 44100 -ac 2'
+                    options='-vn'
                 ),
                 volume=player.volume
             )
@@ -409,15 +409,7 @@ async def play_next(ctx, previous_track=None):
 )
 async def stop(ctx):
     """Stop playing the music and clear the queue"""
-    player = get_player(ctx.guild.id)
-    player.stop_requested = True
-    player.clear_queue()
-
-    if ctx.voice_client and ctx.voice_client.is_playing():
-        ctx.voice_client.stop()
-    else:
-        player.stop_requested = False
-
+    stop_playback(ctx)
     await ctx.send("Music stopped. Queue cleared.")
 
 @bot.hybrid_command(
@@ -515,7 +507,7 @@ class TrackListView(discord.ui.View):
     brief="Show all tracks in the music folder",
     usage="list",
 )
-async def list(ctx):
+async def list_tracks(ctx):
     """Show all tracks"""
     files = get_music_files()
 
