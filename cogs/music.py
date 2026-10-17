@@ -5,10 +5,11 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from MusicPlayer import MusicPlayer
 from config import BITRATE, MUSIC_FOLDER, PREFIX, SUPPORTED_FORMATS
 from library import find_track, get_music_files, refresh_music_files
+from MusicPlayer import MusicPlayer
 from views import TrackListView, build_track_pages
+
 
 async def track_autocomplete(
     interaction: discord.Interaction,
@@ -170,7 +171,7 @@ class Music(commands.Cog):
     )
     @app_commands.describe(arg="Track number from list or part of the filename")
     @app_commands.autocomplete(arg=track_autocomplete)
-    async def play(self, ctx, *, arg: str = None):
+    async def play(self, ctx, *, arg: str | None = None):
         """Play track by number or name"""
         if ctx.interaction is not None:
             await ctx.defer()
@@ -369,7 +370,7 @@ class Music(commands.Cog):
     )
     @app_commands.describe(arg="How tracks repeat after they finish")
     @app_commands.choices(arg=REPEAT_MODE_CHOICES)
-    async def play_mode(self, ctx, *, arg: str = None):
+    async def play_mode(self, ctx, *, arg: str | None = None):
         """Set playing mode: repeat, repeat_playlist, no_repeat"""
         REPEAT_MODES = ('repeat', 'repeat_playlist', 'no_repeat')
         if not ctx.author.voice:

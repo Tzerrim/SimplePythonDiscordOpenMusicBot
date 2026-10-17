@@ -47,7 +47,21 @@ Run `deactivate` to leave the venv. Activation applies only to the current termi
 
 - FFmpeg must be on `PATH` (used by `discord.FFmpegPCMAudio`).
 - Config comes from `.env` via python-dotenv: `DISCORD_BOT_TOKEN` (required), `DISCORD_BOT_PREFIX` (default `/` in code), `DISCORD_BOT_MUSIC_SOURCE_FOLDER` (default `music`, created if missing), `DISCORD_BOT_BITRATE` (Opus kbps passed to `voice_client.play`, default 96, 16-512), `DISCORD_BOT_DEBUG` (`true` prints every chat message to the console).
-- There are no tests, linter, or build step. `.env.example` is the config template; keep it in sync with the variables read in `config.py`.
+- `.env.example` is the config template; keep it in sync with the variables read in `config.py`.
+
+### Linting
+
+ruff is installed system-wide (Fedora package, not in the venv); rules are in `ruff.toml`. Run after every code change and keep it passing:
+
+```bash
+ruff check .          # lint
+ruff check . --fix    # apply safe automatic fixes
+```
+
+- `BLE001` (catch-all `except Exception`) is ignored on purpose: one broken file or channel must not stop the queue or a command.
+- Slash command options are built from type hints: write optional arguments as `arg: str | None = None`, and check that the option stays `required=False` after changing a signature.
+- `ruff format` is not used: it would rewrite quotes and wrapping across most files. If it is ever adopted, apply it in a separate commit with no other changes.
+- There are no tests or build step.
 
 ## Checking and updating dependencies
 

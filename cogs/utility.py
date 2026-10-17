@@ -3,6 +3,7 @@ from discord.ext import commands
 
 from config import PREFIX
 
+
 class Utility(commands.Cog):
     """Bot status and server info commands"""
     def __init__(self, bot):

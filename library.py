@@ -1,7 +1,7 @@
 import asyncio
 
-from MusicPlayer import MusicPlayer
 from config import MUSIC_FOLDER, SUPPORTED_FORMATS
+from MusicPlayer import MusicPlayer
 
 music_files_cache = None # Sorted track list shared by all servers
 

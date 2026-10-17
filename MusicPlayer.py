@@ -1,19 +1,17 @@
-import os
 from pathlib import Path
-from typing import List, Optional
 
 
 class MusicPlayer:
     def __init__(self, music_folder: str, supported_formats: tuple, play_mode: str = "no_repeat"):
-        self.queue: List[str] = []
-        self.current: Optional[str] = None
+        self.queue: list[str] = []
+        self.current: str | None = None
         self.volume: float = 0.5
         self.music_folder = Path(music_folder)
         self.supported_formats = supported_formats
         self.play_mode = play_mode
         self.stop_requested = False
 
-    def get_music_files(self) -> List[str]:
+    def get_music_files(self) -> list[str]:
         """Retrieving all music files from folder and subfolders, sorted."""
         if not self.music_folder.is_dir():
             return []
@@ -24,7 +22,7 @@ class MusicPlayer:
         ]
         return sorted(files)
 
-    def _resolve_track_path(self, track: str) -> Optional[Path]:
+    def _resolve_track_path(self, track: str) -> Path | None:
         """Resolve a track name or relative path inside the music folder."""
         filepath = (self.music_folder / track).resolve()
         if not filepath.is_file():
@@ -45,7 +43,7 @@ class MusicPlayer:
         self.queue.append(str(filepath))
         return True
 
-    def get_next(self) -> Optional[str]:
+    def get_next(self) -> str | None:
         """Retrieving next music file to play"""
         if self.play_mode == 'repeat':
             if self.current:
