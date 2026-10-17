@@ -37,7 +37,7 @@ Or run the venv's Python directly, without activating it:
 Run `deactivate` to leave the venv. Activation applies only to the current terminal, so activate it again in each new terminal.
 
 - FFmpeg must be on `PATH` (used by `discord.FFmpegPCMAudio`).
-- Config comes from `.env` via python-dotenv: `DISCORD_BOT_TOKEN` (required), `DISCORD_BOT_PREFIX` (default `/` in code), `DISCORD_BOT_MUSIC_SOURCE_FOLDER` (default `music`, created if missing).
+- Config comes from `.env` via python-dotenv: `DISCORD_BOT_TOKEN` (required), `DISCORD_BOT_PREFIX` (default `/` in code), `DISCORD_BOT_MUSIC_SOURCE_FOLDER` (default `music`, created if missing), `DISCORD_BOT_DEBUG` (`true` prints every chat message to the console).
 - There are no tests, linter, or build step. `.env.example` is referenced by the READMEs but is not in the repo.
 
 ## Checking and updating dependencies
@@ -54,7 +54,7 @@ pip install --upgrade "discord.py[voice]"    # upgrade one package (the [voice] 
 ```
 
 - `requirements.txt` only sets minimum versions (`>=`), so `pip install --upgrade -r requirements.txt` installs the latest releases. After an upgrade fixes a problem, raise the minimum version in `requirements.txt` to the version that works so new installs don't get an older, broken one.
-- After upgrading, run `python main.py` and check startup output (`Synced N slash command(s)`), then test `/join` and `/play` in Discord. Read the discord.py changelog for breaking changes when the major or minor version changes.
+- After upgrading, run `python main.py` and check startup output (`Synced N slash commands`), then test `/join` and `/play` in Discord. Read the discord.py changelog for breaking changes when the major or minor version changes.
 - If a dependency is broken, recreate the environment: delete `.venv`, create it again, and run `pip install -r requirements.txt`.
 - FFmpeg is not managed by pip. Update it with the system package manager (`dnf upgrade ffmpeg`, `apt upgrade ffmpeg`, `brew upgrade ffmpeg`, `winget upgrade Gyan.FFmpeg`).
 

@@ -298,7 +298,7 @@ pip install --upgrade "discord.py[voice]"    # upgrade one package ([voice] also
 ```
 
 - `requirements.txt` only sets minimum versions (`>=`), so `pip install --upgrade -r requirements.txt` installs the latest releases. If an upgrade fixes a problem, raise the minimum version in `requirements.txt` to the working one so new installs don't get an older version.
-- After upgrading, run `python main.py`, check that the console shows `Synced N slash command(s)`, and test `/join` and `/play` in Discord.
+- After upgrading, run `python main.py`, check that the console shows `Synced N slash commands`, and test `/join` and `/play` in Discord.
 - If the environment is broken, delete the `.venv` folder, create it again, and run `pip install -r requirements.txt`.
 
 ### Updating FFmpeg
@@ -373,6 +373,7 @@ DISCORD_BOT_MUSIC_SOURCE_FOLDER=/mnt/nas/Music/Library
 | `DISCORD_BOT_TOKEN` | Your bot token from the Discord Developer Portal | `DISCORD_BOT_TOKEN=your_token_here` |
 | `DISCORD_BOT_PREFIX` | Command prefix | `!` |
 | `DISCORD_BOT_MUSIC_SOURCE_FOLDER` | Path to your music library | `music` or `D:\Music` or `/home/user/Music` |
+| `DISCORD_BOT_DEBUG` | Print every chat message the bot sees to the console (off by default) | `DISCORD_BOT_DEBUG=true` |
 
 **Important:**
 - Do not commit `.env` to git (it contains your secret token)
@@ -477,8 +478,8 @@ python main.py
 ```
 
 On startup you should see:
-- `Bot ... started successfully`
-- `Synced N slash command(s)` — slash commands registered with Discord
+- `Bot ... started. Id: ...`
+- `Synced N slash commands` — slash commands registered with Discord
 
 In Discord:
 - Prefix commands: type your prefix, for example `!help` or `!list`
@@ -495,6 +496,7 @@ You can use **both** prefix commands and slash commands. Prefix uses the value f
 | `!join` | `/join` | Join your voice channel |
 | `!play <number or name>` | `/play` | Play a track (`/play` suggests tracks while typing) |
 | `!list` | `/list` | Show available tracks |
+| `!rescan` | `/rescan` | Rescan the music folder after adding or removing files |
 | `!skip` | `/skip` | Skip current track |
 | `!stop` | `/stop` | Stop and clear queue |
 | `!leave` | `/leave` | Leave voice channel |
@@ -536,7 +538,7 @@ FFmpeg is not installed or not in `PATH`. Reinstall FFmpeg and open a new termin
 
 - Re-invite the bot with the **applications.commands** scope (OAuth2 → URL Generator)
 - Restart the bot and wait a few minutes for Discord to sync commands globally
-- Make sure the console shows `Synced N slash command(s)` on startup
+- Make sure the console shows `Synced N slash commands` on startup
 
 ### No music files found
 

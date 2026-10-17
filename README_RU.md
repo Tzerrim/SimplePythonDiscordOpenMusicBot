@@ -298,7 +298,7 @@ pip install --upgrade "discord.py[voice]"    # обновить один пак�
 ```
 
 - В `requirements.txt` указаны только минимальные версии (`>=`), поэтому `pip install --upgrade -r requirements.txt` ставит последние версии. Если обновление решило проблему, поднимите минимальную версию в `requirements.txt` до рабочей, чтобы при новой установке не ставилась старая.
-- После обновления запустите `python main.py`, проверьте, что в консоли есть строка `Synced N slash command(s)`, и проверьте `/join` и `/play` в Discord.
+- После обновления запустите `python main.py`, проверьте, что в консоли есть строка `Synced N slash commands`, и проверьте `/join` и `/play` в Discord.
 - Если окружение сломалось, удалите папку `.venv`, создайте её заново и выполните `pip install -r requirements.txt`.
 
 ### Обновление FFmpeg
@@ -373,6 +373,7 @@ DISCORD_BOT_MUSIC_SOURCE_FOLDER=/mnt/nas/Music/Library
 | `DISCORD_BOT_TOKEN` | Токен бота из Discord Developer Portal | `DISCORD_BOT_TOKEN=your_token_here` |
 | `DISCORD_BOT_PREFIX` | Префикс команд | `!` |
 | `DISCORD_BOT_MUSIC_SOURCE_FOLDER` | Путь к папке с музыкой | `music` или `D:\Music` или `/home/user/Music` |
+| `DISCORD_BOT_DEBUG` | Выводить в консоль все сообщения из чатов, которые видит бот (по умолчанию выключено) | `DISCORD_BOT_DEBUG=true` |
 
 **Важно:**
 - Не коммитьте `.env` в git (там секретный токен)
@@ -477,8 +478,8 @@ python main.py
 ```
 
 При запуске в консоли должно появиться:
-- `Bot ... started successfully`
-- `Synced N slash command(s)` — slash-команды зарегистрированы в Discord
+- `Bot ... started. Id: ...`
+- `Synced N slash commands` — slash-команды зарегистрированы в Discord
 
 В Discord:
 - Команды с префиксом: например `!help` или `!list` (или ваш префикс из `.env`)
@@ -495,6 +496,7 @@ python main.py
 | `!join` | `/join` | Подключиться к вашему голосовому каналу |
 | `!play <номер или имя>` | `/play` | Воспроизвести трек (в `/play` есть подсказки при вводе) |
 | `!list` | `/list` | Показать доступные треки |
+| `!rescan` | `/rescan` | Пересканировать папку с музыкой после добавления или удаления файлов |
 | `!skip` | `/skip` | Пропустить текущий трек |
 | `!stop` | `/stop` | Остановить и очистить очередь |
 | `!leave` | `/leave` | Выйти из голосового канала |
@@ -536,7 +538,7 @@ FFmpeg не установлен или не добавлен в `PATH`. Пер�
 
 - Пригласите бота заново со scope **applications.commands** (OAuth2 → URL Generator)
 - Перезапустите бота и подождите несколько минут — Discord синхронизирует команды
-- В консоли при запуске должно быть `Synced N slash command(s)`
+- В консоли при запуске должно быть `Synced N slash commands`
 
 ### Музыкальные файлы не найдены
 

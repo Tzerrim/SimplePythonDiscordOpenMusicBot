@@ -15,6 +15,7 @@ SUPPORTED_FORMATS = ('.mp3', '.wav', '.ogg', '.flac', '.m4a', '.opus')
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 PREFIX = os.getenv('DISCORD_BOT_PREFIX') or '/'
 MUSIC_FOLDER = os.getenv('DISCORD_BOT_MUSIC_SOURCE_FOLDER') or "music"
+DEBUG = (os.getenv('DISCORD_BOT_DEBUG') or '').lower() in ('1', 'true', 'yes')
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -31,12 +32,40 @@ def get_player(guild_id):
         music_players[guild_id] = MusicPlayer(MUSIC_FOLDER,SUPPORTED_FORMATS)
     return music_players[guild_id]
 
+music_files_cache = None # Sorted track list shared by all servers
+
+def get_music_files():
+    """Cached track list. Scans the folder only if the cache is still empty"""
+    global music_files_cache
+    if music_files_cache is None:
+        music_files_cache = MusicPlayer(MUSIC_FOLDER, SUPPORTED_FORMATS).get_music_files()
+    return music_files_cache
+
+async def refresh_music_files():
+    """Rescan the music folder in a thread so a slow disk or NAS does not block the bot"""
+    global music_files_cache
+    scanner = MusicPlayer(MUSIC_FOLDER, SUPPORTED_FORMATS)
+    music_files_cache = await asyncio.to_thread(scanner.get_music_files)
+    return music_files_cache
+
+def find_track(files, arg):
+    """Find track by number from list or by part of the filename"""
+    if arg.isdigit():
+        index = int(arg) - 1
+        if 0 <= index < len(files):
+            return files[index]
+
+    arg_lower = arg.lower()
+    for file in files:
+        if arg_lower in file.lower():
+            return file
+    return None
+
 async def track_autocomplete(
     interaction: discord.Interaction,
     current: str,
 ) -> list[app_commands.Choice[str]]:
-    player = get_player(interaction.guild_id)
-    files = player.get_music_files()
+    files = get_music_files()
     choices: list[app_commands.Choice[str]] = []
     current_lower = current.lower()
 
@@ -59,42 +88,24 @@ REPEAT_MODE_CHOICES = [
 @bot.event
 async def on_ready():
     """Checkin if bot see the server"""
-    print(f'Bot {bot.user} started. Id: {bot.user.id} . Servers: {len(bot.guilds)}')
-
-    # Printing servers list
+    print(f'Bot {bot.user} started. Id: {bot.user.id}. Servers: {len(bot.guilds)}')
     for guild in bot.guilds:
-        print(f'   - {guild.name} (ID: {guild.id}). Members count: {guild.member_count}')
-        bot_member = guild.get_member(bot.user.id) # Checking server bot permissions
-        if bot_member:
-            print(f'     Status: {bot_member.status} . Roles: {len(bot_member.roles)}')
-    print('-' * 50)
-    print(f'Bot {bot.user} started successfully. Music folder: {MUSIC_FOLDER}/')
-    print('=' * 50)
+        print(f'Server: {guild.name} (ID: {guild.id}), members: {guild.member_count}')
 
     # Checking music in folder
-    player = MusicPlayer(MUSIC_FOLDER,SUPPORTED_FORMATS)
-    files = player.get_music_files()
+    files = await refresh_music_files()
     if files:
-        print(f'Found {len(files)} files:')
-        for file in files:
-            print(f'  - {file}')
+        print(f'Music folder: {os.path.abspath(MUSIC_FOLDER)}, files: {len(files)}')
     else:
-        print(f'No music files fount in folder. Please add music files in {SUPPORTED_FORMATS} formats')
-    print('=' * 50)
+        print(f'No music files found in {os.path.abspath(MUSIC_FOLDER)}. Supported formats: {", ".join(SUPPORTED_FORMATS)}')
 
-    print(f'Available commands (prefix: {PREFIX}):')
-    for cmd in sorted(bot.commands, key=lambda c: c.name):
-        # Retrieving first docstring line or using stab
-        desc = cmd.help.split('\n')[0] if cmd.help else "No description"
-        print(f'  {PREFIX}{cmd.name:<10} - {desc}')
-    print('=' * 50)
+    commands_list = ", ".join(cmd.name for cmd in sorted(bot.commands, key=lambda c: c.name))
+    print(f'Commands (prefix {PREFIX}): {commands_list}')
 
     if not getattr(bot, '_slash_synced', False):
         synced = await bot.tree.sync()
         bot._slash_synced = True
-        print(f'Synced {len(synced)} slash command(s) — type / in Discord for interactive hints')
-        print(f'Prefix commands still work: {PREFIX}play, {PREFIX}help, etc.')
-        print('=' * 50)
+        print(f'Synced {len(synced)} slash commands')
 
     # Changing bot status
     await bot.change_presence(
@@ -104,11 +115,11 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    """Debug: logging all messages"""
-    print(f'[{message.guild.name if message.guild else "PM"}] '
-          f'{message.author}: {message.content}')
+    """Debug: logging all messages when DISCORD_BOT_DEBUG is enabled"""
+    if DEBUG:
+        print(f'[{message.guild.name if message.guild else "PM"}] '
+              f'{message.author}: {message.content}')
 
-    # Обрабатываем команды
     await bot.process_commands(message)
 
 @bot.hybrid_command(
@@ -281,7 +292,10 @@ async def play(ctx, *, arg: str = None):
         await ctx.voice_client.move_to(ctx.author.voice.channel)
 
     player = get_player(ctx.guild.id)
-    files = player.get_music_files()
+    files = get_music_files()
+
+    if not files:
+        files = await refresh_music_files()
 
     if not files:
         await ctx.send(f"There are no music files in `{MUSIC_FOLDER}`")
@@ -291,19 +305,12 @@ async def play(ctx, *, arg: str = None):
         await ctx.invoke(bot.get_command('list'))
         return
 
-    found_file = None
-
-    if arg.isdigit():
-        index = int(arg) - 1
-        if 0 <= index < len(files):
-            found_file = files[index]
+    found_file = find_track(files, arg)
 
     if not found_file:
-        arg_lower = arg.lower()
-        for file in files:
-            if arg_lower in file.lower():
-                found_file = file
-                break
+        # Track may have been added after the last scan
+        files = await refresh_music_files()
+        found_file = find_track(files, arg)
 
     if not found_file:
         await ctx.send(f"Track '{arg}' not found")
@@ -323,7 +330,9 @@ async def play(ctx, *, arg: str = None):
             embed.add_field(name="Queue position", value=str(len(player.queue)))
             await ctx.send(embed=embed)
     else:
-        await ctx.send(f"File '{found_file}' not found ")
+        # File was removed after the last scan
+        await refresh_music_files()
+        await ctx.send(f"File '{found_file}' not found. Track list was refreshed, check `{PREFIX}list`")
 
 async def _handle_playback_done(ctx, error, track):
     """Continue queue after a track ends or fails."""
@@ -341,10 +350,10 @@ async def _handle_playback_done(ctx, error, track):
         except discord.HTTPException:
             print(f"Playback error for {filename}: {error}")
 
-    await play_next(ctx)
+    await play_next(ctx, previous_track=track)
 
-async def play_next(ctx):
-    """Play next track form queue"""
+async def play_next(ctx, previous_track=None):
+    """Play next track form queue. Does not announce a track that just finished and starts again (repeat mode)"""
     player = get_player(ctx.guild.id)
     voice_client = ctx.voice_client
 
@@ -372,7 +381,9 @@ async def play_next(ctx):
 
             voice_client.play(source, after=after_playback)
 
-            # Отправляем информацию о текущем треке
+            if next_track == previous_track and player.play_mode != 'no_repeat':
+                return
+
             filename = os.path.basename(next_track)
             embed = discord.Embed(
                 title="Now playing",
@@ -506,8 +517,7 @@ class TrackListView(discord.ui.View):
 )
 async def list(ctx):
     """Show all tracks"""
-    player = get_player(ctx.guild.id)
-    files = player.get_music_files()
+    files = get_music_files()
 
     if not files:
         await ctx.send(f"There are no music files in `{MUSIC_FOLDER}`. Please either change folder or add music files in {SUPPORTED_FORMATS} formats in selected folder ")
@@ -520,6 +530,19 @@ async def list(ctx):
         return
 
     view.message = await ctx.send(embed=view.build_embed(), view=view)
+
+@bot.hybrid_command(
+    name="rescan",
+    description="Rescan the music folder for added or removed tracks",
+    brief="Rescan the music folder",
+    usage="rescan",
+)
+async def rescan(ctx):
+    """Rescan the music folder"""
+    if ctx.interaction is not None:
+        await ctx.defer()
+    files = await refresh_music_files()
+    await ctx.send(f"Music folder rescanned. Found {len(files)} files")
 
 @bot.hybrid_command(
     name="playing",
@@ -606,11 +629,7 @@ async def play_mode(ctx, *, arg: str = None):
 
 # Starting
 if __name__ == "__main__":
-    print("Bot starting...")
-    print(f"Used token: {'set' if TOKEN else 'not set'}")
-    print(f"Used prefix: {PREFIX}")
-    print(f"Music folder: {os.path.abspath(MUSIC_FOLDER)}")
-    print("Initializing music bot...")
+    print(f"Bot starting. Token: {'set' if TOKEN else 'not set'}. Prefix: {PREFIX}. Debug: {'on' if DEBUG else 'off'}")
 
     if not TOKEN:
         print("Error: DISCORD_BOT_TOKEN is not set")
